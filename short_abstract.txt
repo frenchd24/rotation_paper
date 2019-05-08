@@ -1,0 +1,14 @@
+I will present initial results of a study comparing the line-of-sight velocity of Ly-alpha absorbers relative to the rotation velocity of nearby galaxy disks in the nearby Universe (z < 0.03). We have obtained rotation curves via long-slit spectroscopy of 12 galaxies with the Southern African Large Telescope (SALT), and combine this dataset with an additional 17 galaxies with published rotation curves from the literature. Each galaxy appears within 3 virial radii of a QSO sightline with available Cosmic Origin Spectrograph (COS) data. We present a NFW galaxy halo rotation model to interpret these data in the context of probing three-dimensional galaxy halos via 1-dimensional QSO absorption-line spectroscopy. Relative to this model we find that up to 63% of Ly-alpha absorbers have velocities consistent with co-rotation. Intriguingly, the Ly-alpha co-rotation fraction decreases as a function of galaxy luminosity (L*) in a model independent fashion.  
+
+These results are broadly in agreement with the co-rotation fractions predicted by the Stewart et al. (2011b) simulations, and furthermore provides some of the first observational evidence of possible cold-mode accretion onto sub-L* galaxies in the low-z Universe. 
+
+These results are broadly in agreement with the co-rotation fractions predicted by the Stewart et al. (2011b) simulations, and furthermore provide some of the first observational evidence of the cold and hot-mode accretion regimes predicted to occur in the low-z Universe. 
+
+These results are broadly in agreement with the co-rotation fractions predicted by the Stewart et al. (2011b) simulations, and furthermore provide some of the first observational evidence of the predicted cold vs hot-mode accretion regimes in the low-z Universe. 
+
+These results are broadly in agreement with the co-rotation fractions predicted by the Stewart et al. (2011b) simulations, and furthermore provide some of the first observational evidence of the predicted cold and hot-mode accretion regimes in the low-z Universe. 
+
+These results are broadly in agreement with the co-rotation fractions predicted by the Stewart et al. (2011b) simulations, and are furthermore consistent with the cold and hot-mode accretion regimes predicted in the low-z Universe. 
+
+
+Finally, we report that both anti-rotating absorbers and those found near luminous galaxies (L > 0.6 L*) mostly have low Doppler b-parameters (b < 50 km/s). Absorbers consistent with co-rotation show a wide range of Doppler b-parameters.

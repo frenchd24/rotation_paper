@@ -1,0 +1,11 @@
+Total co-rotate = 1 
+Total anti-rotate = 1 
+Total uncertain = 0 
+
+Co-rotating systems: 
+$\rm NGC3067 : 3C232$
+
+Anti-rotating systems: 
+$\rm NGC3067 : 3C232$
+
+Uncertain systems: 

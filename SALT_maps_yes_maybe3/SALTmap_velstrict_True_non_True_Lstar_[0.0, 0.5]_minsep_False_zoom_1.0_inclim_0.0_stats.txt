@@ -1,0 +1,15 @@
+Total co-rotate = 3 
+Total anti-rotate = 3 
+Total uncertain = 0 
+
+Co-rotating systems: 
+$\rm NGC3067 : 3C232$
+$\rm NGC3432 : CSO295$
+$\rm NGC3631 : SDSSJ112448.30+531818.0$
+
+Anti-rotating systems: 
+$\rm NGC3067 : 3C232$
+$\rm NGC3432 : CSO295$
+$\rm NGC3631 : RX_J1117.6+5301$
+
+Uncertain systems: 

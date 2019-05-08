@@ -1,0 +1,49 @@
+Total co-rotate = 12 
+Total anti-rotate = 13 
+Total uncertain = 5 
+
+Total co-rotate within 1.0 = 4 
+Total co-rotate outside 1.0 = 8 
+
+Total anti-rotate within 1.0 = 5 
+Total anti-rotate outside 1.0 = 8 
+
+Total uncertain within = 1.0 
+Total uncertain outside = 1.0 
+
+
+Co-rotating systems: 
+$\rm NGC3351 : SDSSJ104335.90+115129.0$
+$\rm CGCG039-137 : RX_J1121.2+0326$
+$\rm NGC3666 : SDSSJ112439.50+113117.0$
+$\rm NGC5907 : SBS1503+570$
+$\rm NGC2770 : FBQSJ0908+3246$
+$\rm NGC3633 : RX_J1121.2+0326$
+$\rm NGC4565 : RX_J1236.0+2641$
+$\rm NGC2770 : TON1009$
+$\rm NGC2770 : TON1015$
+$\rm NGC3198 : RX_J1017.5+4702$
+$\rm NGC2770 : SDSSJ091052.80+333008.0$
+$\rm MCG-03-58-009 : MRC2251-178$
+
+Anti-rotating systems: 
+$\rm NGC3351 : SDSSJ104335.90+115129.0$
+$\rm NGC4565 : RX_J1236.0+2641$
+$\rm NGC4565 : RX_J1236.0+2641$
+$\rm NGC3666 : SDSSJ112439.50+113117.0$
+$\rm NGC2770 : SDSSJ091127.30+325337.0$
+$\rm NGC2770 : SDSSJ091052.80+333008.0$
+$\rm NGC2770 : TON1015$
+$\rm NGC2770 : TON1009$
+$\rm NGC4529 : MRK771$
+$\rm NGC2770 : FBQSJ0908+3246$
+$\rm NGC5786 : QSO1500-4140$
+$\rm NGC5364 : SDSSJ135726.27+043541.4$
+$\rm ESO343-G014 : RBS1768$
+
+Uncertain systems: 
+$\rm NGC5951 : 2E1530+1511$
+$\rm NGC3726 : CSO1208$
+$\rm NGC3726 : CSO1208$
+$\rm NGC3726 : RX_J1142.7+4625$
+$\rm NGC7817 : MRK335$

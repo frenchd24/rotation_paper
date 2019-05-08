@@ -1,0 +1,24 @@
+Average Lstar co-rotate = 0.948 
+Average Lstar anti-rotate = 3.004 
+Median Lstar co-rotate = 0.58 
+Median Lstar anti-rotate = 1.8 
+Std Lstar co-rotate = 0.715960892787 
+Std Lstar anti-rotate = 5.9026229198 
+
+
+Average Lstar co-rotate zoom_in = 0.694 
+Average Lstar anti-rotate zoom_in = 1.25142857143 
+Median Lstar co-rotate zoom_in = 0.475 
+Median Lstar anti-rotate zoom_in = 1.3 
+Std Lstar co-rotate zoom_in = 0.512605111172 
+Std Lstar anti-rotate zoom_in = 0.672106041196 
+
+
+Average Lstar co-rotate zoom_out = 1.11733333333 
+Average Lstar anti-rotate zoom_out = 4.5375 
+Median Lstar co-rotate zoom_out = 0.88 
+Median Lstar anti-rotate zoom_out = 1.8 
+Std Lstar co-rotate zoom_out = 0.779405471426 
+Std Lstar anti-rotate zoom_out = 7.73901439138 
+
+

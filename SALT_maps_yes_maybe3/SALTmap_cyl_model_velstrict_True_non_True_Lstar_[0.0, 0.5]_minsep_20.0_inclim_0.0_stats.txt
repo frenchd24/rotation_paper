@@ -1,0 +1,24 @@
+Total co-rotate = 4 
+Total anti-rotate = 1 
+Total uncertain = 0 
+
+Total co-rotate within 1.0 = 2 
+Total co-rotate outside 1.0 = 2 
+
+Total anti-rotate within 1.0 = 0 
+Total anti-rotate outside 1.0 = 1 
+
+Total uncertain within = 1.0 
+Total uncertain outside = 1.0 
+
+
+Co-rotating systems: 
+$\rm NGC3067 : 3C232$
+$\rm NGC3067 : 3C232$
+$\rm NGC3067 : SDSSJ095914.80+320357.0$
+$\rm UGC06446 : SDSSJ112448.30+531818.0$
+
+Anti-rotating systems: 
+$\rm NGC6140 : MRK876$
+
+Uncertain systems: 

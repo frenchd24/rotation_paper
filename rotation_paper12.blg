@@ -1,0 +1,47 @@
+This is BibTeX, Version 0.99d (TeX Live 2017)
+Capacity: max_strings=100000, hash_size=100000, hash_prime=85009
+The top-level auxiliary file: rotation_paper12.aux
+The style file: apj.bst
+Database file #1: /Users/frenchd/Research/inclination/git_inclination/thesis_bib.bib
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+You've used 66 entries,
+            3010 wiz_defined-function locations,
+            1023 strings with 22635 characters,
+and the built_in function-call counts, 36870 in all, are:
+= -- 2844
+> -- 3298
+< -- 19
++ -- 1113
+- -- 1203
+* -- 3425
+:= -- 7071
+add.period$ -- 66
+call.type$ -- 66
+change.case$ -- 494
+chr.to.int$ -- 65
+cite$ -- 66
+duplicate$ -- 1303
+empty$ -- 1832
+format.name$ -- 1272
+if$ -- 7113
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 62
+newline$ -- 202
+num.names$ -- 266
+pop$ -- 549
+preamble$ -- 1
+purify$ -- 494
+quote$ -- 0
+skip$ -- 1072
+stack$ -- 0
+substring$ -- 1402
+swap$ -- 54
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 594
+warning$ -- 0
+while$ -- 255
+width$ -- 0
+write$ -- 662

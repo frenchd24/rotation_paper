@@ -1,0 +1,32 @@
+Average b co-rotate = 49.745 
+Average b anti-rotate = 51.315 
+Median b co-rotate = 43.9 
+Median b anti-rotate = 43.8 
+Std b co-rotate = 25.1264298101 
+Std b anti-rotate = 47.5003502619 
+
+
+Average b co-rotate zoom_in = 56.325 
+Average b anti-rotate zoom_in = 68.8333333333 
+Median b co-rotate zoom_in = 50.3 
+Median b anti-rotate zoom_in = 49.7 
+Std b co-rotate zoom_in = 32.8137833082 
+Std b anti-rotate zoom_in = 65.8808689142 
+
+
+Average b co-rotate zoom_out = 45.3583333333 
+Average b anti-rotate zoom_out = 36.9818181818 
+Median b co-rotate zoom_out = 42.55 
+Median b anti-rotate zoom_out = 38.8 
+Std b co-rotate zoom_out = 16.920178207 
+Std b anti-rotate zoom_out = 9.72903977153 
+
+
+Average b Lstar high = 44.71 
+Average b Lstar low = 61.8466666667 
+Median b Lstar high = 42.6 
+Median b Lstar low = 53.7 
+Std b Lstar high = 23.1322860954 
+Std b Lstar low = 50.9439936488 
+
+

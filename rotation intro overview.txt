@@ -1,0 +1,59 @@
+- Galaxies form from the cosmic web, accrete gas from the same regions
+- Cold and hot mode accretion
+	- hot mode: As gas encounters the galaxy halo it shock-heats as it hits the virial radius. The inner, more dense region of this hot gaseous halo rains down onto
+the disk as it radiatively cools. (Fillmore & Goldreich 1984; Bertschinger 1985)
+	- cold mode: However, most gas arrives cold (T~10^4 K) from the IGM, and the proposed radiative shock is unstable to cooling. Thus this hot-halo scenario may not be created. (Birnboim & Dekel 2003; Keres et al. 2005; Ocvirk, Pichon & Teyssier 2008; ˇ
+Brooks et al. 2009; Dekel et al. 2009) - all this from Pichon 2011 (MNRAS 418, 2493–2507) See also Binney 1977. This cold-mode accretion should dominate the global growth of all galaxies at high redshifts (z ≥ 3) and the growth of low-mass (Mhalo ≤ 5 × 1011 M) objects at late times (Dekel & Birnboim 2006).
+
+	Cold mode accretioning filaments should merge smoothly with the disk, thus converting a significant fraction of their infall velocity to rotational velocity of the galaxy. (Keres et al. 2005). Powell, Slyz & Devriendt (2011) spectacularly confirmed these conjectures by showing that indeed, the filaments connect rather smoothly to the disc. This mode of accretion likely dominates in all but the most massive halos.
+
+Some observational evidence of cold-mode accretion has been obtained at higher redshifts (Kaczprak?, Steidel?). But the largest study of low-redshift, Ly alpha was cote 2005, which a sample of 5??? galaxy-absorber systems. 
+
+MgII studies: Steidel 2002, Charlton & Churchill 1998, Kaczprak??
+MgII studies find tantalizing evidence that a significant fraction of MgII absorbers have velocities that can be explained by an extended gaseous disk. However, as noted by Steidel 2002, a rotating \emph{halo} may be a better model than a simple extended thick disk model.
+
+However, the picture may have changed since $z \sim 0.5$, ether epoch most of these MgII are probing. By $z \sim 0$ simulations (e.g., ....) predict a drop-off in cold-mode accretion
+
+
+- Gas being accreted carries angular momentum with it
+- This angular momentum has to go somewhere in order to be fully accreted, do absorbers co-rotate?
+
+- Literature review, results thus far
+- Issues? all small sample size, higher redshift/metal absorption
+- Neutral Ly-alpha traces cool, pristine IGM material
+
+
+-Co-rotation vs spin rate?
+-Co-rotation vs EW?
+-EW vs spin rate (markers designate co-rotation)
+
+
+
+
+Kimm 2011 - AMR simulations find low filamentary cold gas accretion results in very low covering fraction, making observational detection difficult (z~1.5)
+
+Shen 2013 - Elis simulations of the CGM, showing 'cold' streams penetrate deep into the viral radius, are not affect by outflows. OVI halo of near unity covering fraction out to 150 kpc.
+
+Danovich 2012, 2015 - AM is carried from filaments into the disk
+
+
+Pichon 2011 - AMR Mare Nostrum simulation:  at redshift 1.5 and above, gas inflow through the virial sphere is focused (preferred inflow direction), consistent (orientation of advected angular momentum steady in time), and amplified (increasing amplitude of advected angular momentum as time passes).
+
+Lutz 2018 - higher spin halos impede star formation efficiency
+
+Steidel 2002 - MgII study of 5 galaxies - 4/5 co-rotate
+
+
+Brook 2011 - Later accreted material has higher angular momentum. A reservoir of high angular momentum material exists beyond the star-forming regions.
+
+Brooks 2009 - Low -mass galaxies are dominated by accretion of sub-viral temperature gas, and dense filaments of this gas exist even in massive galaxies with hot haloes. For galaxies up to Star, this cold accretion gas is responsible for SF in the disk up to the present.
+
+Keres 2005, 2009 - N-body+SPH simulations found galaxies with halo masses below ~10^11 are dominated by cold gas accretion, never shock heated to viral temperature. Ocvirk 2008 also same. 2005 - Gas which eventually accretes via cold mode is heated in the filament, the hot mode gas is heated at the halo virial shock. There is a smooth transition with galaxy mass - high mass galaxies have shocks everywhere so only have hot, intermediate has some of each as some filaments can penetrate without shocking, low mass has mostly cold mode as shocks won't develop. Transition should be at or below 10^12 solar masses at 1 Rvir
+
+Also see: (Oppenheimer et al. 2010; Brook et al. 2012; Shen et al. 2012; Ford et al. 2014, 2016; Muratov et al. 2015; Christensen et al. 2016).
+
+Stewart 2017: Most gas seen as 'co-rotating' is not angular-momentum supported, and thus "inspiring" halo gas is a more accurate description of it's coherent motion. 
+
+Check Prescott et al 2015, Martin et al 2014, 2015, Bouche 2016, Ho et al 2017
+
+

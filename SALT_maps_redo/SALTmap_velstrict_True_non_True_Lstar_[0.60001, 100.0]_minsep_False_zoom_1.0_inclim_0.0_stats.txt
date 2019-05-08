@@ -1,0 +1,19 @@
+Total co-rotate = 4 
+Total anti-rotate = 5 
+Total uncertain = 1 
+
+Co-rotating systems: 
+$\rm CGCG039-137 : RX_J1121.2+0326$
+$\rm NGC3351 : SDSSJ104335.90+115129.0$
+$\rm NGC3666 : SDSSJ112439.50+113117.0$
+$\rm NGC4565 : RX_J1236.0+2641$
+
+Anti-rotating systems: 
+$\rm NGC3351 : SDSSJ104335.90+115129.0$
+$\rm NGC4565 : RX_J1236.0+2641$
+$\rm NGC4565 : RX_J1236.0+2641$
+$\rm NGC3666 : SDSSJ112439.50+113117.0$
+$\rm NGC5364 : SDSSJ135726.27+043541.4$
+
+Uncertain systems: 
+$\rm NGC5951 : 2E1530+1511$

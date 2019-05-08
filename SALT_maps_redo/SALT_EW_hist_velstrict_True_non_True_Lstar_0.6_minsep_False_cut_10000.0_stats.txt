@@ -1,0 +1,32 @@
+Average EW co-rotate = 344.2 
+Average EW anti-rotate = 296.933333333 
+Median EW co-rotate = 184.0 
+Median EW anti-rotate = 266.0 
+Std EW co-rotate = 417.555074212 
+Std EW anti-rotate = 165.061389253 
+
+
+Average EW co-rotate zoom_in = 567.9 
+Average EW anti-rotate zoom_in = 388.571428571 
+Median EW co-rotate zoom_in = 456.5 
+Median EW anti-rotate zoom_in = 365.0 
+Std EW co-rotate zoom_in = 562.162689975 
+Std EW anti-rotate zoom_in = 194.835356972 
+
+
+Average EW co-rotate zoom_out = 195.066666667 
+Average EW anti-rotate zoom_out = 216.75 
+Median EW co-rotate zoom_out = 180.0 
+Median EW anti-rotate zoom_out = 241.5 
+Std EW co-rotate zoom_out = 155.886482915 
+Std EW anti-rotate zoom_out = 63.9682538452 
+
+
+Average EW Lstar high = 281.033333333 
+Average EW Lstar low = 442.4 
+Median EW Lstar high = 243.5 
+Median EW Lstar low = 339.0 
+Std EW Lstar high = 191.138602997 
+Std EW Lstar low = 486.333191684 
+
+
