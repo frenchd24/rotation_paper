@@ -52,6 +52,11 @@ import matplotlib.ticker as ticker
 from astropy.table import Table
 
 
+from scipy.interpolate import interp1d
+from scipy import interpolate
+from scipy import interpolate, optimize
+from scipy.interpolate import Rbf, InterpolatedUnivariateSpline
+
 from matplotlib import rc
 fontScale = 14
 rc('text', usetex=True)
@@ -78,6 +83,208 @@ rc('ytick',direction='in')
 '''
 
 
+def stocke_rvir_interpolate(filename):
+    """
+    Interpolates the Stocke et al. (2013) Figure 1 to get Rvir as a function of L/L*
+    
+    Parameters
+    ----------
+    filename    : the directory to the csv file containing an extraction of the plot data
+                  Two columns - x and y, both floats
+    
+    Returns
+    -------
+    interp      : interpolation object such that interp(L) returns the corresponding Rvir
+    
+    
+    """
+    # --- read in the data  and unpack
+    log_L, log_rvir = np.loadtxt(filename, delimiter=',', usecols=(0,1), unpack=True)
+    
+    print 'log_L[0]: ',log_L[0]
+    print 'log_rvir[0]: ',log_rvir[0]
+    print
+    
+    # --- get out of log space
+    L = 10**log_L
+    rvir = 10**log_rvir
+    
+    # --- interpolate it using a cubic spline
+    interp = interp1d(L, rvir, kind='cubic')
+    
+    return interp
+
+
+
+def project_model_velocity(z, origin, normal, rayDirection, rayPoint, rcutoff, fit_model, sphericalHalo=True, verbose=False):
+    """
+        Returns the projected velocity given the inputs and fit_model 
+        
+        Parameters
+        ----------
+        z           : float
+                    the z height about the disk midplane
+                    
+        origin      : np.array [default = [0, 0, 0]]
+                    origin point - the center of the galaxy in the midplane
+                    
+        normal      : np.array
+                    galaxy plane normal vector
+                    
+        rayDirection: np.array [default = [1, 0 ,0]]
+                    direction of the QSO vector
+                    
+        rayPoint    : np.array
+                    a point along the QSO ray (expect [0, RA_impact, Dec_impact])
+                    
+        rcutoff     : float [kpc]
+                    the radial extent of the model (how far out to project the disk)
+                    
+        fit_model   : function of 1 variable
+                    the function representing the rotation model. gives rotation
+                    velocity as a function of radius
+        
+        sphericalhalo : boolean
+                      True means the total distance from the origin is given to fit_model.
+                      This results in a halo which is spherical instead of cylindrical
+                      
+                      False means the distance from the current plane origin is given.
+        
+        
+        Returns
+        -------
+        a dictionary containing:
+        return {"intersect"         : intersect point of sightline with disk
+                "intersect_dist"    : distance from center of plane to intersect
+                "dist_from_origin"  : distance from ORIGIN to intersect (equal to intersect_dist for midplane)
+                "v_intersect"       : velocity given by model at intersect distance
+                "v_n_intersect"     : rotation velocity vector point away from center
+                "v_rotation"        : rotation vector correctly oriented wrt sightline
+                "v_proj"            : rotation vector projected onto sightline
+        
+    """
+    
+
+    # this is a point in the new, parallel but shifted plane
+    planePoint = origin + (z * normal)
+
+    # get intersect: find_intersect(planeNormal,planePoint,rayDirection,rayPoint)
+    intersect = find_intersect(normal, planePoint, rayDirection, rayPoint)
+    
+    # this is the vector from the origin of the current plane to the intersect
+    intersect_vect = intersect - (z * normal)
+    
+    # this is the distance from the origin of the current plane to the intersect
+    intersect_dist = np.linalg.norm(intersect_vect)
+    
+    # this is the distance from the origin (galaxy center) to the current intersect pt
+    dist_from_origin = np.linalg.norm(intersect)
+
+    # restrict the intersection to be within the cylinder of radius rcutoff
+    if intersect_dist <= rcutoff:
+        if verbose:
+            print 'planePoint: ',planePoint
+            print "intersection at", intersect
+            print 'intersect_dist: ',intersect_dist
+
+        # find the rotation velocity at this distance from the rotation curve fit center
+        try:
+            if sphericalHalo:
+                v_intersect = fit_model(dist_from_origin)
+            else:
+                v_intersect = fit_model(intersect_dist)
+                if verbose:
+                    print 'v_intersect: ',v_intersect
+        except Exception,e:
+            # if you go beyond the fit, set velocity to 0
+            v_intersect = 0
+            if verbose:
+                print 'Ran out of interpolation range for {0}'.format(intersect_dist)
+                print "Built in exception is {0}".format(e)
+            sys.exit()
+            
+        #######
+        #######
+        #######
+        # angle between sightline and vector to intersect point
+    
+        # unit vector towards intersect point
+        n_intersect_dist = intersect_vect / np.linalg.norm(intersect_vect)
+        if verbose:
+            print 'n_intersect_dist: ',n_intersect_dist
+            print 'np.linalg.norm(n_intersect_dist): ',np.linalg.norm(n_intersect_dist)
+
+    
+        # this is the velocity vector in the direction of intersect point, n_intersect_dist
+        # edit: seems legit
+        v_n_intersect = v_intersect * n_intersect_dist
+        if verbose:
+            print 'new way: '
+            print 'v_n_intersect: ',v_n_intersect
+            print '||v_n_intersect|| : ',np.linalg.norm(v_n_intersect)
+#         v_list.append(v_n_intersect)
+
+
+        # v_n_intersect points away from the galaxy center. Rotating this by 90 degrees
+        # within the disk gives the correct vector for disk rotation, with amplitude
+        # given by the model
+
+        # the result of rotating v counterclockwise by a about n is given by:
+        # (cos a)v+(sin a)(n x v)
+        #
+        # so need to rotate by pi + pi/2 to get all the way around
+        alpha = math.pi + math.pi/2
+        
+        # this then should be the correct rotation velocity vector, but centered at the
+        # origin. So, we then need to just shift the sightline to pass through the origin
+        #
+        # i.e., new sightline = [1, 0 ,0 ] = rayDirection
+        v_rotation = math.cos(alpha) * v_n_intersect + math.sin(alpha) * (np.cross(normal, v_n_intersect, axisa=0, axisb=0, axisc=0))
+        if verbose:
+            print 'v_rotation: ',v_rotation
+            print '||v_rotation|| : ',np.linalg.norm(v_rotation)
+            print '||N||: ', np.linalg.norm(normal)
+#         v_90_list.append(v_rotation)
+    
+        # now dot it with the sightline to get the component along
+        v_proj = np.dot(v_rotation, rayDirection)
+        if verbose:
+            print 'v_proj: ',v_proj
+#         v_proj_list.append(v_proj)
+        
+#         intersect_list.append(intersect[0])
+            print 'intersect: ',intersect
+            print 'intersect[0]: ',intersect[0]
+            print
+#         intersect_point_list.append(intersect)
+
+#         d = -planePoint.dot(normal)
+#         d_plot_list.append(d)
+
+        return_dict = {"intersect"          :intersect,
+                        "intersect_dist"    :intersect_dist, 
+                        "dist_from_origin"  :dist_from_origin,
+                        "v_intersect"       :v_intersect,
+                        "v_n_intersect"     :v_n_intersect,
+                        "v_rotation"        :v_rotation,
+                        "v_proj"            :v_proj}
+                        
+    else:
+        v_intersect = False
+        v_n_intersect = False
+        v_rotation = False
+        v_proj = False
+        return_dict = {"intersect"          :intersect,
+                        "intersect_dist"    :intersect_dist, 
+                        "dist_from_origin"  :dist_from_origin,
+                        "v_intersect"       :v_intersect,
+                        "v_n_intersect"     :v_n_intersect,
+                        "v_rotation"        :v_rotation,
+                        "v_proj"            :v_proj}
+                        
+    return return_dict
+
+
 
 def adjust(impact,inc,az):
     a = math.sin(az*math.pi/180.) * impact
@@ -85,6 +292,7 @@ def adjust(impact,inc,az):
     ds = a * math.tan((90-inc)*math.pi/180.)
     
     return ds
+    
     
     
 def rotate_vector(v,k,theta):
@@ -249,21 +457,81 @@ def NFW(r,v200,c,r200):
     vr = v200 * np.sqrt(top/bottom)
     
     return vr
+    
+
+def steidel_model(vc, inclination, hv, impact, azimuth, Dlos):
+    """
+        Calculate v_los based on the model of Steidel et al. (2002). Also used by
+        Kacprzak et al. (2019)
         
+        Parameters
+        ----------
+        vmax     : float
+                maximum rotation velocity (inclination corrected)
+                
+        hv       : float
+                scale height of the disk
+                
+        impact   : float
+                impact parameter
+                
+        azimuth  : float
+                azimuth angle
+                
+        y        : float
+                the y component
+        
+        Returns
+        -------
+        vlos    : float
+                the vlos at Dlos position along the sightline
+        
+    """
+    
+    # --- convert to radians
+    to_radians = np.pi/180.
+    az_radians = azimuth * to_radians
+    inc_radians = inclination * to_radians
+    
+    y0 = impact * np.sin(az_radians) / np.cos(inc_radians)
+    y = (Dlos * np.sin(inc_radians)) + y0
+    p = impact * np.cos(az_radians)
+    
+    exp_term = np.exp(-(abs(y - y0)/(hv * np.tan(inc_radians))))
+    
+    sqrt_term = np.sqrt(1 + (y/p)**2)
+    
+    vlos = -(vc  * np.sin(inc_radians) / sqrt_term) * exp_term
+#     vlos = -(vc / sqrt_term) * exp_term
+
+    return vlos
+    
         
         
         
 def plot_NFW(xData, yData, popt, x_lim):
-    '''
+    """
     This function makes a nice looking plot showing the NFW fit and data
     
-    xData - the x values for the observed rotation curve 
-    yData - the y values for the observed rotation curve
-    popt - the fit values
-    x_lim - the maximum x value to plot to
+    Parameters
+    ----------
+    xData   : np.array
+            the x values for the observed rotation curve 
+            
+    yData   : np.array
+            the y values for the observed rotation curve
+            
+    popt    : np.array
+            the fit values
+            
+    x_lim   : float
+            the maximum x value to plot to
     
-    returns the figure object, to be shown or saved
-    '''
+    Returns
+    -------
+    fig     : the figure object, to be shown or saved
+    
+    """
     
 #     fig = plt.figure(figsize=(8,8))
     fig = plt.figure(figsize=(7.7,5.7))
@@ -325,11 +593,10 @@ def writeout_fits(xData, yData, popt, x_lim, filename):
     'NFW Fit:','V200={0}, c={1}, R200={2}'.format(round(v200,2),round(c,2),round(r200,2))]
     
     pass
-    
 
 
-    
-    
+
+
 def main():
     hubbleConstant = 71.0
     
@@ -345,15 +612,32 @@ def main():
     
     # --- Halo size:
     # --- height multiplier (* R_vir)
-    zcutoffm = 0.2
+    zcutoffm = 2.0
     
     # --- radius multiplier (* R_vir)
-    rcutoffm = 1
+    rcutoffm = 3.0
+    
+    # --- hv for the Steidel model
+    steidel_hv = 1000.0
+    
+    # save the full model velocity data in a pickle file?
+    save_data_pickle = True
     
     color_blue = '#436bad'      # french blue
     color_red = '#ec2d01'     # tomato red
+    
+    # --- interpolate the Stocke et al. (2013) Lstar vs Rvir relation
+    stocke_rvir_filename = '/Users/frenchd/Research/rotation_paper_data/Rvir_L_Lstar2.csv'
+    stocke_rvir = stocke_rvir_interpolate(stocke_rvir_filename)
+    
+    # ---  Use the Stocke + 2013 Rvir calculation or the usual one?
+    use_stocke_rvir = True
+    
+    # --- center at the midplane intersect? centers at galaxy systemic if false
+    center_at_intersect = False
 
-#     galaxyName = 'CGCG039-137'
+
+    galaxyName = 'CGCG039-137'
 #     galaxyName = 'ESO343-G014'
 #     galaxyName = 'IC5325'
 #     galaxyName = 'MCG-03-58-009'
@@ -384,10 +668,11 @@ def main():
 #     galaxyName = 'NGC5951'
 #     galaxyName = 'NGC7817'
 #     galaxyName = 'UGC08146'
-    galaxyName = 'M31'
+#     galaxyName = 'M31'
 
-#     saveDirectory = '/Users/frenchd/Research/M31_rotation/{0}/'.format(galaxyName)
-    saveDirectory = '/Users/frenchd/Research/inclination/git_inclination/rotation_paper/models_v2/{0}/'.format(galaxyName)
+#     saveDirectory = '/Users/frenchd/Research/M31_rotation/{0}/model_v3/'.format(galaxyName)
+#     saveDirectory = '/Users/frenchd/Research/inclination/git_inclination/rotation_paper/models_v2/{0}/'.format(galaxyName)
+    saveDirectory = '/Users/frenchd/Research/rotation_paper_data/rotation_models_v2/{0}/'.format(galaxyName)
 
 
 ##########################################################################################
@@ -420,8 +705,10 @@ def main():
     # 'agn': include any information about AGN here
     # 'xVals': physical (kpc) x axis along the slit
 
-    directory = '/Users/frenchd/Research/inclination/git_inclination/rotation_paper/rot_curves/'
+#     directory = '/Users/frenchd/Research/inclination/git_inclination/rotation_paper/rot_curves/'
 #     directory = '/Users/frenchd/Research/M31_rotation/'
+    directory = '/Users/frenchd/Research/rotation_paper_data/summary_files/'
+
 
 #     filename = 'CGCG039-137-summary4.json'
 #     filename = 'ESO343-G014-summary4.json'
@@ -437,8 +724,8 @@ def main():
 
 #     filename = '{0}-summary4.json'.format(galaxyName)
 #     filename = '{0}-summary6.json'.format(galaxyName)
-    filename = '{0}-summary7.json'.format(galaxyName)
-#     filename = '{0}-summary.json'.format(galaxyName)
+#     filename = '{0}-summary7.json'.format(galaxyName)
+    filename = '{0}-summary.json'.format(galaxyName)
 
     
     with open(directory+filename) as data_file:
@@ -460,14 +747,39 @@ def main():
         PA = data['PA']
         agn = data['agn']
         
-        R_vir = calculateVirialRadius(majDiam)
+        # --- Lstar and error calculation
+        Lstar = float(data['Lstar'])
+        e_Lstar = float(data['e_Lstar'])
+
         
+        # --- calculate a few things
+        if use_stocke_rvir:
+            R_vir = stocke_rvir(Lstar)
+            e_R_vir_up = stocke_rvir(Lstar + e_Lstar) - R_vir
+            e_R_vir_down = R_vir - stocke_rvir(Lstar - e_Lstar)
+        else:
+            R_vir = calculateVirialRadius(majDiam)
+            e_R_vir_up = calculateVirialRadius(majDiam + majDiam*0.1)
+            e_R_vir_down = calculateVirialRadius(majDiam - majDiam*0.1)
+
+        # --- define "vmax", the average maximum rotation velocity
+        vmax_incCorrected = max(abs(right_vrot_incCorrected_avg), abs(left_vrot_incCorrected_avg))
+        
+        # -- remove inclination correction for the Steidel model method
+        vmax = vmax_incCorrected * np.sin(inc * np.pi/180.)
+        
+        print
         print 'PA: ',PA
         print 'inc: ',inc
         print 'dist: ',dist
         print 'AGN: ',agn
         print
-
+        print 'vmax_incCorrected: ',vmax_incCorrected
+        print 'vmax: ',vmax
+        print
+        print 'Lstar: ',Lstar
+        print 'stocke_rvir(Lstar) = ',stocke_rvir(Lstar)
+        print
         
 
         # which agn do you want to target? Also decide here if you want to mirror around
@@ -796,19 +1108,20 @@ def main():
             reverse = True
             agnName = 'PG1259+593'
 
-        # grab the coordinates for this target
+        # --- grab the coordinates for this target
         RA_target = agn[agnName]['RAdeg']
         Dec_target = agn[agnName]['DEdeg']
         
+        # --- approaching or receding side?
+        side = agn[agnName]['side']
+
 
 ##########################################################################################
 ##########################################################################################
-    # rename arrays something stupid
-#     vels = vrot_vals
+    # --- rename arrays something stupid
     vels = vrot_incCorrected_vals
     xvals = deepcopy(xVals)
     vsys = vsys_measured
-
 
 
     # this works for all positive xvals
@@ -831,12 +1144,6 @@ def main():
     #     xvalEnd +=step
     #     xvals2.insert(0,xvalStart)
     #     xvals2.append(xvalEnd)
-
-
-    from scipy.interpolate import interp1d
-    from scipy import interpolate
-    from scipy import interpolate, optimize
-    from scipy.interpolate import Rbf, InterpolatedUnivariateSpline
     
     if fit_NFW:
 #         reverse it?
@@ -846,11 +1153,11 @@ def main():
 #         yData = np.array(yData)*-1
     
     
-        # fold the data over so approaching and receding sides are both positive
+        # --- fold the data over so approaching and receding sides are both positive
         newVals = []
         newX = []
         
-        # these will be the 
+        # --- these will be the 
         xData1 = []
         yData1 = []
         xData2 = []
@@ -865,13 +1172,12 @@ def main():
         for v,x in zip(vels, xVals):
             xData1.append(x)
             yData1.append(v)
-        
-            
+
             newX.append(abs(x))
             newVals.append(abs(v))
     
-        newX = np.array(newX)
-        newVals = np.array(newVals)
+        newX = np.array(newX)[len(newX)/3:]
+        newVals = np.array(newVals)[len(newVals)/3:]
         
         print 'newX: ',newX
         print
@@ -881,98 +1187,111 @@ def main():
         a = 3.95
         rho = 500.
         
-        v200 = 150
-        c = 10
+        v200 = abs(right_vrot_incCorrected_avg) / 1.2
+        c = 5
         r200 = R_vir
-        print 'r200: ',r200
         
-        r200_lowerbound = 10
-        r200_upperbound = 350
-        v200_lowerbound = 10
-        v200_upperbound = 500
+        r200_lowerbound = R_vir/1.2
+        r200_upperbound = R_vir*1.2
+        v200_lowerbound = abs(right_vrot_incCorrected_avg)/2.0
+        v200_upperbound = abs(right_vrot_incCorrected_avg)
         c_lowerbound = 1
-        c_upperbound = 35
+        c_upperbound = 25
         
-        # slightly tighter (e.g., for NGC2770)
-        if NFW_fit == 'tight':
-            r200_lowerbound = 10
-            r200_upperbound = 250
-            v200_lowerbound = 10
-            v200_upperbound = 130
-            c_lowerbound = 1
-            c_upperbound = 35
+        print 'r200_lowerbound: ',r200_lowerbound
+        print 'r200_upperbound: ',r200_upperbound
+        print 'v200_lowerbound: ',v200_lowerbound
+        print 'v200_upperbound: ',v200_upperbound
+        print 'R_vir: ',R_vir
+        print
         
-            v200 = 50
-            c = 10
-            r200 = R_vir
+        
+        # --- slightly tighter (e.g., for NGC2770)
+#         if NFW_fit == 'tight':
+#             r200_lowerbound = 10
+#             r200_upperbound = 250
+#             v200_lowerbound = 10
+#             v200_upperbound = 130
+#             c_lowerbound = 1
+#             c_upperbound = 35
+#         
+#             v200 = 50
+#             c = 10
+#             r200 = R_vir
         
 
-        # tighter bounds (e.g., for UGC09760)
-        if NFW_fit == 'tighter':
-            r200_lowerbound = 10
-            r200_upperbound = 250
-            v200_lowerbound = 10
-            v200_upperbound = 115
-            c_lowerbound = 1
-            c_upperbound = 35
-            
-            v200 = 50
-            c = 10
-            r200 = R_vir
+        # --- tighter bounds (e.g., for UGC09760)
+#         if NFW_fit == 'tighter':
+#             r200_lowerbound = 10
+#             r200_upperbound = 250
+#             v200_lowerbound = 10
+#             v200_upperbound = 115
+#             c_lowerbound = 1
+#             c_upperbound = 35
+#             
+#             v200 = 50
+#             c = 10
+#             r200 = R_vir
 
 
-        # tightest bounds (e.g., for UGC04238, UGC09760)
-        if NFW_fit == 'tightest':
-            r200_lowerbound = 10
-            r200_upperbound = 250
-            v200_lowerbound = 10
-            v200_upperbound = 90
-            c_lowerbound = 1
-            c_upperbound = 35
+        # --- tightest bounds (e.g., for UGC04238, UGC09760)
+#         if NFW_fit == 'tightest':
+#             r200_lowerbound = 10
+#             r200_upperbound = 250
+#             v200_lowerbound = 10
+#             v200_upperbound = 90
+#             c_lowerbound = 1
+#             c_upperbound = 35
+#             
+#             v200 = 50
+#             c = 10
+#             r200 = R_vir
             
-            v200 = 50
-            c = 10
-            r200 = R_vir
-            
-        # more than tightest bounds (e.g., for UGC08146)
-        if NFW_fit == 'tightester':
-            r200_lowerbound = 10
-            r200_upperbound = 250
-            v200_lowerbound = 10
-            v200_upperbound = 80
-            c_lowerbound = 1
-            c_upperbound = 35
-            
-            v200 = 50
-            c = 10
-            r200 = R_vir
+        # --- more than tightest bounds (e.g., for UGC08146)
+#         if NFW_fit == 'tightester':
+#             r200_lowerbound = 10
+#             r200_upperbound = 250
+#             v200_lowerbound = 10
+#             v200_upperbound = 80
+#             c_lowerbound = 1
+#             c_upperbound = 35
+#             
+#             v200 = 50
+#             c = 10
+#             r200 = R_vir
             
         # for UGC04238
-        if NFW_fit == 'tightester2':
-            r200_lowerbound = 10
-            r200_upperbound = 250
-            v200_lowerbound = 10
-            v200_upperbound = 75
-            c_lowerbound = 1
-            c_upperbound = 35
+#         if NFW_fit == 'tightester2':
+#             r200_lowerbound = 10
+#             r200_upperbound = 250
+#             v200_lowerbound = 10
+#             v200_upperbound = 75
+#             c_lowerbound = 1
+#             c_upperbound = 35
+#             
+#             v200 = 50
+#             c = 10
+#             r200 = R_vir
             
-            v200 = 50
-            c = 10
-            r200 = R_vir
-            
-        if NFW_fit == 'NGC4536':
-            r200_lowerbound = 20
-            r200_upperbound = 200
-            v200_lowerbound = 150
-            v200_upperbound = 350
-            c_lowerbound = 1
-            c_upperbound = 50
-            
-            v200 = 150
-            c = 30
-            r200 = R_vir
+        # for NGC4536
+#         if NFW_fit == 'NGC4536':
+#             r200_lowerbound = 20
+#             r200_upperbound = 200
+#             v200_lowerbound = 150
+#             v200_upperbound = 350
+#             c_lowerbound = 1
+#             c_upperbound = 50
+#             
+#             v200 = 150
+#             c = 30
+#             r200 = R_vir
         
         try:
+            print
+            print 'NFW : ', NFW
+            print 'newX : ',np.shape(newX)
+            print 'newVals : ',np.shape(newVals)
+            print
             popt, pcov = optimize.curve_fit(NFW, newX, newVals, p0=[v200,c,r200], \
             bounds=((v200_lowerbound, c_lowerbound, r200_lowerbound), (v200_upperbound, c_upperbound, r200_upperbound)))
             
@@ -994,7 +1313,7 @@ def main():
         # plot it
 #         xData_fit = linspace(0,max(xvals),num=1000)
 #         y_fit = NFW(xData_fit,*popt)
-        x_lim = 30
+        x_lim = int(max(newX)) + int(max(newX)/4.)
         fig = plot_NFW(newX, newVals, popt, x_lim)
         fig.savefig("{0}{1}_NFW_{2}.jpg".format(saveDirectory,galaxyName,x_lim),dpi=300,bbox_inches='tight')
         
@@ -1067,13 +1386,14 @@ def main():
 
         
         fit = interp1d(xvals, vels, kind=splineKind)
-    
+        popt = False
+        
 #         fig = plt.figure(figsize=(7,5))
         fig = plt.figure(figsize=(7.7,5.7))
         ax = fig.add_subplot(1,1,1)
         
-        x_fit = linspace(-50,50,num=1000)
-    
+        x_fit = linspace(-50, 50, num=1000)
+
         scatter(xvals, vels, color='black', s=40, label = r'$\rm Data$')
         plot(x_fit, fit(x_fit), color='green', alpha=0.7, ms=0, lw=2, label = r'$\rm Linear-Spline ~Fit$')
         legend()
@@ -1095,7 +1415,7 @@ def main():
         ax.yaxis.set_minor_locator(minorLocator)
         
         
-        xlim(-50,50)
+        xlim(-50, 50)
         xlabel(r'$\rm R~[kpc]$')
         ylabel(r'$\rm V_{rot}$')
         
@@ -1103,32 +1423,27 @@ def main():
         
 ##########################################################################################
     
-    # calculate impact parameter and shit
+    # --- calculate impact parameter and shit
     impact = calculateImpactParameter(RA_galaxy,Dec_galaxy,RA_target,Dec_target,dist)
     
-    # RA component of impact parameter - by setting the Dec to be the same for both
+    # --- RA component of impact parameter - by setting the Dec to be the same for both
     impact_RA = calculateImpactParameter(RA_galaxy,Dec_galaxy,RA_target,Dec_galaxy,dist)
     
-    # Dec component of impact parameter - by setting the RA to be the same for both
+    # --- Dec component of impact parameter - by setting the RA to be the same for both
     impact_Dec = calculateImpactParameter(RA_galaxy,Dec_galaxy,RA_galaxy,Dec_target,dist)
     
-    # calculate azimuth
+    # --- calculate azimuth
     az = calculateAzimuth(RA_galaxy,Dec_galaxy,RA_target,Dec_target,dist,PA)
-    
-    # calculate R_vir
-    R_vir = calculateVirialRadius(majDiam)
-    
-#     inc = 20.
-    
+
+        
 #     inc = .45
 #     R_vir = 1.5*R_vir
 
-    
 #     if RA_galaxy > RA_target:
 #         impact_RA = -impact_RA
     if Dec_galaxy > Dec_target:
         impact_Dec = -impact_Dec
-        
+
     if RA_target > RA_galaxy:
         impact_RA = -impact_RA
             
@@ -1141,19 +1456,16 @@ def main():
     print 'R_vir: ',R_vir
     print
         
-    # inclination is backwards, so flip it
+    # --- inclination is backwards, so flip it
 #     effectiveInc = 90.-inc
     effectiveInc = inc
     print 'effectiveInc: ',effectiveInc
     print
-    
-#     effectiveInc += 180
-    
+        
     if flipInclination:
         effectiveInc *=-1.
     
-    
-    # define some lists to populate later
+    # --- define some lists to populate later
     v_parallel_list = []
     v_parallel_inc_list = []
     vfinal_list = []
@@ -1164,22 +1476,21 @@ def main():
     dsfinal_list = []
     dsvfinal_list = []
     
-    
 ##########################################################################################
 ##########################################################################################
 ##########################################################################################
 ##########################################################################################
-    # Define the galaxy plane
+    # --- Define the galaxy plane
 
 
-    # start with a normal pointing along the x-axis (plane is in z-y plane)
+    # --- start with a normal pointing along the x-axis (plane is in z-y plane)
     N = np.array([1.,0.,0.])
 
-    # rotate about y for inclination
+    # --- rotate about y for inclination
     k_inc = np.array([0.,1.,0.])
     inc_rot = effectiveInc * np.pi/180.
 
-    # rotate about x for PA
+    # --- rotate about x for PA
     k_pa = np.array([1.,0.,0.])
     pa_rot = (90. + PA) * np.pi/180.
 
@@ -1205,12 +1516,13 @@ def main():
     
 ##########################################################################################
 ##########################################################################################
-    # now loop through layers of galaxy planes
+    # --- now loop through layers of galaxy planes
         
     zcutoff = zcutoffm * R_vir
+    rcutoff = rcutoffm * R_vir
     print 'zcutoff: ',zcutoff
     print
-    rcutoff = rcutoffm * R_vir
+    
     v_proj_list = []
     intersect_list = []
     d_plot_list = []
@@ -1218,7 +1530,10 @@ def main():
     v_list = []
     v_90_list = []
     
-    # how often to sample?
+    vlos_list = []
+    dlos_list = []
+    
+    # --- how often to sample?
     if inc <= 60:
         s = 0.1
     elif inc <=80:
@@ -1231,120 +1546,167 @@ def main():
     if diskOnly:
         zcutoff = 0.1
         s = 0.1
+        
+        
+##########################################################################################
+
+    #  --- first apply the model to just the thin-disk midplane
+    z = 0
+#   midplane_model_projection = project_model_velocity(z, origin, normal, rayDirection, rayPoint, rcutoff, fit, sphericalHalo=False)
+    midplane_model_projection = project_model_velocity(z, origin, normal, rayDirection, rayPoint, rcutoff, fit, sphericalHalo=False)
+
+    # --- unpack the results
+    midplane_intersect           = midplane_model_projection["intersect"]
+    midplane_intersect_dist      = midplane_model_projection["intersect_dist"]
+    midplane_dist_from_origin    = midplane_model_projection["dist_from_origin"]
+    midplane_v_intersect         = midplane_model_projection["v_intersect"]
+    midplane_v_n_intersect       = midplane_model_projection["v_n_intersect"]
+    midplane_v_rotation          = midplane_model_projection["v_rotation"]
+    midplane_v_proj              = midplane_model_projection["v_proj"]
     
-#     for i in arange(-zcutoff,zcutoff,.1):
-#     for i in arange(-99,-97.5,.0005):
-    for i in arange(-zcutoff,zcutoff,s):
-
-        # this is a point in the new, parallel but shifted plane
-#         planePoint = (p1-p) + (i * normal)
-        planePoint = origin + (i * normal)
-
-        # get intersect: find_intersect(planeNormal,planePoint,rayDirection,rayPoint)
-        intersect = find_intersect(normal, planePoint, rayDirection, rayPoint)
-        
-        # this is the vector from the origin of the current plane to the intersect
-        intersect_vect = intersect - (i * normal)
-        
-        # this is the distance from the origin of the current plane to the intersect
-#         p2 = intersect[0]
-#         p2 = np.linalg.norm(intersect)
-        p2 = np.linalg.norm(intersect_vect)
-        
-        # this is the distance from the origin (galaxy center) to the current intersect pt
-        dist_from_origin = np.linalg.norm(intersect)
-
-        # restrict the intersection to be within the cylinder of radius rcutoff
-        if p2 <= rcutoff:
-            print 'planePoint: ',planePoint
-            print "intersection at", intersect
-            print 'p2: ',p2
-
-            # find the rotation velocity at this distance from the rotation curve fit center
-            try:
-                if fit_NFW:
-                    v_intersect = fit(dist_from_origin)
-                else:
-                    v_intersect = fit(p2)
-                    print 'v_intersect: ',v_intersect
-            except Exception,e:
-                # if you go beyond the fit, set velocity to 0
-                v_intersect = 0
-                print 'Ran out of interpolation range for {0}'.format(p2)
-                print "Built in exception is {0}".format(e)
-                sys.exit()
-                
-            #######
-            #######
-            #######
-            # angle between sightline and vector to intersect point
-        
-            # unit vector towards intersect point
-    #         n_p2 = intersect / np.linalg.norm(intersect)
-            n_p2 = intersect_vect / np.linalg.norm(intersect_vect)
-            print 'n_p2: ',n_p2
-            print 'np.linalg.norm(n_p2): ',np.linalg.norm(n_p2)
-        
-        
-            # new way of doing this:
-            #
-            # the result of rotating v counterclockwise by a about n is given by:
-            # (cos a)v+(sin a)(n x v)
-            #
-            # so need to rotate by pi + pi/2 to get all the way around
-            alpha = math.pi + math.pi/2
-    #         alpha = math.pi/2
-
-        
-            # this is the velocity vector in the direction of intersect point, n_p2
-            # edit: seems legit
-            v = v_intersect * n_p2
-            print 'new way: '
-            print 'v: ',v
-            print '||v|| : ',np.linalg.norm(v)
-            v_list.append(v)
-        
-            # this then should be the correct rotation velocity vector, but centered at the
-            # origin. So, we then need to just shift the sightline to pass through the origin
-            #
-            # i.e., new sightline = [1, 0 ,0 ] = rayDirection
-            v_90 = math.cos(alpha) * v + math.sin(alpha) * (np.cross(normal, v, axisa=0, axisb=0, axisc=0))
-            print 'v_90: ',v_90
-            print '||v_90|| : ',np.linalg.norm(v_90)
-            print '||N||: ', np.linalg.norm(normal)
-
-            v_90_list.append(v_90)
-        
-            # now dot it with the sightline to get the component along
-            cos_alpha = np.dot(v_90, rayDirection)
-            print 'cos_alpha: ',cos_alpha
-            v_proj = cos_alpha
-            print 'v_proj: ',v_proj
-
     
+    midplane_dlos = midplane_intersect[0]
+    
+    print 'midplane_intersect: ',midplane_intersect
+    print 'midplane_intersect_dist: ',midplane_intersect_dist
+    print 'midplane_dist_from_origin: ',midplane_dist_from_origin
+    print 'midplane_v_intersect: ',midplane_v_intersect
+    print 'midplane_v_n_intersect: ',midplane_v_n_intersect
+    print 'midplane_v_rotation: ',midplane_v_rotation
+    print 'midplane_v_proj: ',midplane_v_proj
+    print 'origin: ',origin
+    print 'normal: ',normal
+    print 'rayDirection: ',rayDirection
+    print 'rayPoint: ',rayPoint
+    print
+        
+##########################################################################################
+
+    # the NFW model
+    for i in arange(-zcutoff, zcutoff, s):
+        model_projection    = project_model_velocity(i, origin, normal, rayDirection, rayPoint, rcutoff, fit, sphericalHalo=False)
+        intersect           = model_projection["intersect"]
+        intersect_dist      = model_projection["intersect_dist"]
+        dist_from_origin    = model_projection["dist_from_origin"]
+        v_intersect         = model_projection["v_intersect"]
+        v_n_intersect       = model_projection["v_n_intersect"]
+        v_rotation          = model_projection["v_rotation"]
+        v_proj              = model_projection["v_proj"]
+        
+        
+        # --- Where is the zero point? Center either at the midplane intersect or the
+        # --- galaxy systemic velocity
+        if center_at_intersect:
+            intersect_xaxis = intersect[0]
+        else:
+            intersect_xaxis = intersect[0] - midplane_dlos
+
+        if v_proj:
             v_proj_list.append(v_proj)
-    #         intersect_list.append(p2)
-            intersect_list.append(intersect[0])
-            print 'intersect[0]: ',intersect[0]
-            print
+            intersect_list.append(intersect_xaxis)
             intersect_point_list.append(intersect)
-
-            d = -planePoint.dot(normal)
-            d_plot_list.append(d)
-
+            v_list.append(v_n_intersect)
+            v_90_list.append(v_rotation)
+            
+##########################################################################################
     
-#     print 'v_proj_list: ',v_proj_list
-#     print 'intersect_list: ',intersect_list
+    # --- Steidel model:
+    if inc <= 30:
+        steidel_step = 0.001
+    elif inc <=50:
+        steidel_step = 0.01
+    else:
+        steidel_step = 0.1
+    
+#     for i in arange(-rcutoff, rcutoff, steidel_step):
+    print 'min(intersect_list): ',min(intersect_list)
+    print 'max(intersect_list): ',max(intersect_list)
+    print 'intersect[0]: ',intersect[0]
     print
     
+    # --- define the model range
+    steidel_min = -600
+    steidel_max = 600
+#     steidel_min = min(intersect_list)
+#     steidel_max = max(intersect_list)
+
+    # --- check if the sign is right for vmax
+    if side == 'receding':
+        vmax = float(vmax) * -1
+    
+    
+    for i in arange(steidel_min, steidel_max, steidel_step):
+        # --- steidel_model(vmax, inclination, hv, impact, azimuth, Dlos)
+        
+        effective_r = np.sqrt(i**2 + intersect_dist**2)
+        effective_vc = fit(effective_r)
+#         print "effective_r = {0}, effective_vc = {1}".format(effective_r, effective_vc)
+        
+        # --- the model
+#         vlos = steidel_model(effective_vc, effectiveInc, hv, impact, az, i)
+
+        vlos = steidel_model(vmax, effectiveInc, steidel_hv, impact, az, i)
+        print 'dlos: ',i
+        print 'vlos: ',vlos
+        print 'vmax: ',vmax
+        print 'inc: ',inc
+        print 'az: ',az
+        print 'hv: ',steidel_hv
+        print
+
+        # --- center at midplane intersect or at galaxy systemic
+        if center_at_intersect:
+            intersect_xaxis = i + midplane_dlos
+        else:
+            intersect_xaxis = i
+
+        vlos_list.append(vlos)
+        dlos_list.append(intersect_xaxis)
+
+# 
+#     for i in arange(steidel_min, steidel_max, steidel_step):
+#         # --- steidel_model(vmax, inclination, hv, impact, azimuth, Dlos)
+#         
+#         effective_r = np.sqrt(i**2 + intersect_dist**2)
+#         effective_vc = fit(effective_r)
+# #         print "effective_r = {0}, effective_vc = {1}".format(effective_r, effective_vc)
+#         
+#         # --- the model
+# #         vlos = steidel_model(effective_vc, effectiveInc, hv, impact, az, i)
+# 
+#         vlos = steidel_model(vmax, effectiveInc+5, steidel_hv, impact, az, i)
+#         print 'dlos: ',i
+#         print 'vlos: ',vlos
+#         print 'vmax: ',vmax
+#         print 'inc: ',inc
+#         print 'az: ',az
+#         print 'hv: ',steidel_hv
+#         print
+# 
+#         # --- center at midplane intersect or at galaxy systemic
+#         if center_at_intersect:
+#             intersect_xaxis = i + midplane_dlos
+#         else:
+#             intersect_xaxis = i
+# 
+#         vlos_list.append(vlos)
+#         dlos_list.append(intersect_xaxis)
+            
+            
+            
+##########################################################################################
 ##########################################################################################
 ##########################################################################################
 ##########################################################################################
 ##########################################################################################
 
-    # how big to make the plot boundary?
-#     plotExtent = round(3*R_vir,-1)
+    # --- Define the extent of the plot boundary
     plotExtent = round(1.5*rcutoff,-1)
+    
+    if plotExtent <400:
+        plotExtent = 400
+    if plotExtent >400:
+        plotExtent = 800
 
     print 'beginning plotExtent: ',plotExtent
     print 'rcutoff: ',rcutoff
@@ -1354,43 +1716,23 @@ def main():
     print
     print
     print
-    print
-    print
-    print
-    print
-    print
-    print
-    print
-    
-    
-    if plotExtent <= 400.:
-        plotExtent = 400.
-    
-    elif plotExtent > 400 and plotExtent <= 800.:
-        plotExtent = 800.
-        
-    else:
-        plotExtent = 1000.
-        
-    print
-    print 'plotExtent: ', plotExtent
-    print
     
     # how big to make the plotted cylinder?
     zHeight = zcutoff
     
     # plot velocity on the x-axis? No idea what happens if this is False...
-    plotXVelocity = True
+    plot_x_velocity = False
     
     # how many steps to take while plotting. each step moves the sightline forward and 
     # populates the other with that result
-    steps = 50
-        
-#     from matplotlib import gridspec
+    steps = 1
     
     # tranpose the list of intersects for plotting
-    ip_xlist,ip_ylist,ip_zlist = np.array(intersect_point_list).transpose()
+    ip_xlist, ip_ylist, ip_zlist = np.array(intersect_point_list).transpose()
     
+    # --- some colors
+    color_blue = '#436bad'  # french blue
+    color_red = '#ec2d01'   # tomato red
 
     for i in arange(steps):
         i +=1
@@ -1398,8 +1740,6 @@ def main():
         # initial figure
         fig = plt.figure(figsize=(12,8))
         
-    #     gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1]) 
-
         # first plot the v_proj data
         ax = fig.add_subplot(1,2,1)
         
@@ -1410,46 +1750,62 @@ def main():
         # number of actual intercept elements to take for each step
         len_step = len(intersect_list)/steps
         
-        intersect_v_list = (np.array(intersect_list)/1000)*hubbleConstant
+        # --- x axis in kpc or km/s
+        if plot_x_velocity:
+            intersect_x_list = (np.array(intersect_list)/1000.)*hubbleConstant
+        else:
+            intersect_x_list = np.array(intersect_list)
         
         print 'len_step: ',len_step
-#         print 'intersect_v_list[:i*len_step] vs v_proj_list[:i*len_step]: ',intersect_v_list[:i*len_step],' , ',v_proj_list[:i*len_step]
+#         print 'intersect_x_list[:i*len_step] vs v_proj_list[:i*len_step]: ',intersect_x_list[:i*len_step],' , ',v_proj_list[:i*len_step]
         
-        if plotXVelocity:
-            ax.scatter(intersect_v_list[:i*len_step],v_proj_list[:i*len_step], color='black',s=10)
-            ylabel(r'$\rm V_{proj} ~[km~s^{-1}]$')
+        # --- plot it
+        ax.scatter(intersect_x_list[:i*len_step], v_proj_list[:i*len_step], color='black', s=10)
+        ylabel(r'$\rm V_{proj} ~[km~s^{-1}]$')
+        
+        ##################################################################################
+        # --- plot the Steidel model results
+#         print "dlos_list[:i*len_step]: ",dlos_list[:i*len_step]
+#         print
+#         print "vlos_list[:i*len_step]: ",vlos_list[:i*len_step]
+#         print
+        ax.scatter(dlos_list, vlos_list, color=color_blue, s=15, label = 'Steidel Model')
+
+
+        # --- decide on the xlabel
+        if plot_x_velocity:
             xlabel(r'$\rm Intersect ~[km~s^{-1}]$')
-        
         else:
-            ax.scatter(intersect_list,v_proj_list, color='black',s=10)
-            ylabel(r'$\rm V_{proj} ~[km~s^{-1}]$')
-            xlabel(r'$\rm Intersect ~kpc]$')
+            xlabel(r'$\rm Intersect ~[kpc]$')
     
+        # --- Define the minimum and maximum extent for the x and y axes
+        max_velocity = max(np.concatenate((v_proj_list, vlos_list)))
+        min_velocity = min(np.concatenate((v_proj_list, vlos_list)))
+        
+        max_x = max(np.concatenate((intersect_x_list, dlos_list)))
+        min_x = min(np.concatenate((intersect_x_list, dlos_list)))
+        
         
         tick_num = 9.
         x_tick_num = 6.
-        tick_spacing = round((max(v_proj_list) - min(v_proj_list))/tick_num,2)
-        x_tick_spacing = round((max(intersect_v_list) - min(intersect_v_list))/x_tick_num,2)
+        tick_spacing = round((max_velocity - min_velocity)/tick_num,-1)
+        x_tick_spacing = round((max_x - min_x)/x_tick_num,-1)
         
-        y_extent = max(v_proj_list) - min(v_proj_list)
-        x_extent = max(intersect_v_list) - min(intersect_v_list)
-        tick_spacing = round(y_extent + y_extent/4., 0)/tick_num
-        x_tick_spacing = round(x_extent + x_extent/4., 0)/x_tick_num
-
+        y_extent = max_velocity - min_velocity
+        x_extent = max_x - min_x
+        tick_spacing = round(y_extent + y_extent/4., -1)/tick_num
+        x_tick_spacing = round(x_extent + x_extent/4., -1)/x_tick_num
 
         print 'tick_spacing: ',tick_spacing
         print 'max(v_proj_list): ',max(v_proj_list)
         print 'min(v_proj_list): ',min(v_proj_list)
-#         if tick_spacing <0.05:
-#                 tick_spacing = 0.01
 
-
-        xlim_pos = max(intersect_v_list) + x_tick_spacing
-        xlim_neg = min(intersect_v_list) - x_tick_spacing
-#         ylim_pos = max(v_proj_list) +2
-#         ylim_neg = min(v_proj_list) -2
-        ylim_pos = max(v_proj_list) + tick_spacing
-        ylim_neg = min(v_proj_list) - tick_spacing *2
+#         xlim_pos = max_x + x_tick_spacing/2
+#         xlim_neg = min_x - x_tick_spacing/2
+        xlim_pos = steidel_max
+        xlim_neg = steidel_min
+        ylim_pos = max_velocity + tick_spacing/2
+        ylim_neg = min_velocity - tick_spacing/2
         
         print '########################################'
         print 'xlim_pos: ',xlim_pos
@@ -1458,10 +1814,10 @@ def main():
         print 'ylim_neg: ',ylim_neg
         print '########################################'
         print
-        print 'intersect_v_list: ',intersect_v_list
-        print
+#         print 'intersect_x_list: ',intersect_x_list
+#         print
 #         print 'v_proj_list: ',v_proj_list
-        print
+#         print
         
 #         ax.set_xlim(xlim_neg, xlim_pos)
 #         ax.set_ylim(ylim_neg,ylim_pos)
@@ -1484,7 +1840,7 @@ def main():
         tick_spacing =  (int(ylim_pos) - int(ylim_neg))/tick_num
 
         if tick_spacing == 0.0:
-            tick_spacing = round((max(v_proj_list) - min(v_proj_list))/tick_num,5)
+            tick_spacing = round((max_velocity - min_velocity)/tick_num,5)
             print 'inside'
         
         print
@@ -1524,6 +1880,7 @@ def main():
         ax.set_xbound(lower=math.floor(xlim_neg), upper=math.floor(xlim_pos))
 
         ylim(int(ylim_neg), int(ylim_pos))
+        xlim(int(xlim_neg), int(xlim_pos))
         
         if tick_spacing <1:
             ylim(ylim_neg-ylim_neg/10, ylim_pos + ylim_pos/10)
@@ -1551,14 +1908,14 @@ def main():
 
         # some interesting points: 
         # v is the velocity vector in the direction of intersect point
-        v = np.array(v_list[0])
+#         v = np.array(v_list[0])
     
         # v_90 is the rotation velocity vector in the direction of rotation at the intersect
         # point
-        v_90 = np.array(v_90_list[0])
+#         v_90 = np.array(v_90_list[0])
     
         # galaxy center
-        orig = np.array([0,0,0])
+#         orig = np.array([0,0,0])
     
         # intersect point
         intersect = np.array(intersect_point_list[0])
@@ -1600,9 +1957,9 @@ def main():
         colorTop = 'blue'
     
     #     ax=plt.subplot(111, projection='3d')
-        ax.plot_surface(X, Y, Z, color=colorTube, alpha = alphaTube)
+        ax.plot_surface(X,  Y,  Z,  color=colorTube,   alpha = alphaTube)
         ax.plot_surface(X2, Y2, Z2, color=colorBottom, alpha = alphaBottom)
-        ax.plot_surface(X3, Y3, Z3, color=colorTop, alpha = alphaTop)
+        ax.plot_surface(X3, Y3, Z3, color=colorTop,    alpha = alphaTop)
         
         ax.set_xlim(-plotExtent, plotExtent)
         ax.set_ylim(-plotExtent, plotExtent)
@@ -1613,8 +1970,7 @@ def main():
         ax.invert_xaxis()
 
         # rotate the plot
-#         ax.view_init(elev=10., azim=5)
-        ax.view_init(elev=15., azim=20)
+        ax.view_init(elev=10., azim=15)
 #         ax.view_init(elev=10., azim=10)
 
 
@@ -1659,7 +2015,6 @@ def main():
         z_label = r'$\rm Dec.~ [kpc]$'
         
         z_label = 'Dec. [kpc]'
-#         z_label = 'abcde'
         
         ax.set_zlabel(z_label, rotation=0, fontsize=14, labelpad=40)
 #         ax.set_xlabel(x_label, rotation=0, fontsize=14, labelpad=40)
@@ -1690,63 +2045,56 @@ def main():
 #         if i == 2:
 #             show()
     
-    
-#         directory = '/Users/frenchd/Research/test/CGCG039-137_3/'
-#         directory = '/Users/frenchd/Research/test/ESO343-G014/'
-#         directory = '/Users/frenchd/Research/test/IC5325/'
-#         directory = '/Users/frenchd/Research/test/MCG-03-58-009/'
-#         directory = '/Users/frenchd/Research/test/NGC1566/'
-#         directory = '/Users/frenchd/Research/test/NGC3513/'
-#         directory = '/Users/frenchd/Research/test/NGC3633/'
-#         directory = '/Users/frenchd/Research/test/NGC4536/'
-#         directory = '/Users/frenchd/Research/test/NGC4939/'
-#         directory = '/Users/frenchd/Research/test/NGC5364/'
-#         directory = '/Users/frenchd/Research/test/{0}/'.format(galaxyName)
-        directory = '/Users/frenchd/Research/M31_rotation/{0}/'.format(galaxyName)
-
-
-#         directory = '/Users/frenchd/Research/test/RFGC3781/'
-        savefig("{0}{1}.jpg".format(directory,i),dpi=200,bbox_inches='tight')
+        savefig("{0}{1}.jpg".format(saveDirectory, i), dpi=200, bbox_inches='tight')
         close(fig)
     
 ##########################################################################################
 ##########################################################################################
     # write out a summary txt file
     
-    summary_file = open(directory+'summary.txt','wt')
+    summary_file = open(saveDirectory + 'summary.txt','wt')
     
     summary_file.write('Galaxy name: {0}\n'.format(galaxyName))
     summary_file.write('Target name: {0}\n'.format(agnName))
+    summary_file.write('R_vir: {0}\n'.format(R_vir))
+    summary_file.write('Inclination: {0}\n'.format(inc))
+    summary_file.write('Max V_rot / sin(i): {0}\n'.format(right_vrot_incCorrected_avg))
+    summary_file.write('\n')
     summary_file.write('flipInclination: {0}\n'.format(flipInclination))
     summary_file.write('reverse: {0}\n'.format(reverse))
     summary_file.write('fit_NFW: {0}\n'.format(fit_NFW))
+    summary_file.write('Fit popt: [V200, c, R200] = {0}\n'.format(popt))
     summary_file.write('\n')
-    summary_file.write('Allowed Y-velocity range: [{0}, {1}]'.format(min(v_proj_list),max(v_proj_list)))
+    summary_file.write('Allowed Y-velocity range: [{0}, {1}]\n'.format(min(v_proj_list), max(v_proj_list)))
     summary_file.write('\n')
-    summary_file.write('Allowed X-velocity range: [{0}, {1}]'.format(min(intersect_v_list),max(intersect_v_list)))
-    
+    summary_file.write('Allowed X-velocity range: [{0}, {1}]\n'.format(min(intersect_x_list), max(intersect_x_list)))
+    summary_file.write('\n')
+    summary_file.write('-----------------\n')
+    summary_file.write('\n')
+    summary_file.write('Steidel Model range: [{0}, {1}]\n'.format(min(vlos_list), max(vlos_list)))
+    summary_file.write('\n')
+    summary_file.write('Steidel Model x-range: [{0}, {1}]\n'.format(min(dlos_list), max(dlos_list)))
+
     # this part sums the x and y velocities. For example, if you're at -10 km/s along the 
     # sightline and the measured velocity is -10, the velocity at that point is -20 km/s.
-    totals = []
-    for x, y in zip(intersect_v_list, v_proj_list):
-        totals.append(x+y)
+    if plot_x_velocity:
+        totals = []
+        for x, y in zip(intersect_x_list, v_proj_list):
+            totals.append(x+y)
     
-    totals.sort()
-    total_nozeros = []
-    for i in totals:
-        if i != 0:
-            total_nozeros.append(i)
+        totals.sort()
+        total_nozeros = []
+        for i in totals:
+            if i != 0:
+                total_nozeros.append(i)
     
-    total_min = min(total_nozeros)
+        total_min = min(total_nozeros)
     
-    summary_file.write('\n')
-    summary_file.write('Combined velocity range: [{0}, {1}]'.format(total_min,max(totals)))
-    summary_file.write('\n')
-    
+        summary_file.write('\n')
+        summary_file.write('Combined velocity range: [{0}, {1}]'.format(total_min, max(totals)))
+        summary_file.write('\n')
+
     summary_file.close()
-    
-    # save the full model velocity data in a pickle file?
-    save_data_pickle = True
 
     
     # save pickle data?
@@ -1758,7 +2106,7 @@ def main():
         d = {}
         
         # velocity along the sightline
-        d['intersect_v_list'] = intersect_v_list
+        d['intersect_x_list'] = intersect_x_list
         
         # projected rotation velocity
         d['v_proj_list'] = v_proj_list
@@ -1774,6 +2122,8 @@ def main():
         d['p0'] = p0
         d['p1'] = p1
         
+        d['popt'] = popt
+
         pickle.dump(d, pickle_file)
         pickle_file.close()
 
